@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>포모도로 타이머</title>
+  <link
+    id="dynamic-favicon"
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23ff6b6b'/%3E%3Ccircle cx='32' cy='32' r='16' fill='none' stroke='%23ffffff' stroke-width='5'/%3E%3C/svg%3E"
+  />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+  />
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="js/storage.js" defer></script>
+  <script src="js/audio.js" defer></script>
+  <script src="js/timer.js" defer></script>
+  <script src="js/main.js" defer></script>
+</head>
+<body data-mode="focus">
+  <!-- 토스트 알림 -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <div class="app-shell">
+    <!-- 상단 헤더 -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <h1 class="brand-title">포모도로 타이머</h1>
+      </div>
+
+      <label class="test-toggle" title="빠른 동작 확인용: 집중 5초 / 휴식 3초">
+        <input type="checkbox" id="test-mode-toggle" />
+        <span class="toggle-track" aria-hidden="true">
+          <span class="toggle-thumb"></span>
+        </span>
+        <span class="toggle-label">테스트 모드 (5초/3초)</span>
+      </label>
+    </header>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="main-card">
+      <!-- 모드 표시 헤더 -->
+      <div class="mode-bar" aria-live="polite">
+        <span id="mode-badge" class="mode-badge">
+          <span class="mode-badge-dot" aria-hidden="true"></span>
+          <span id="mode-label">집중 시간</span>
+        </span>
+        <span id="cycle-hint" class="cycle-hint">25분 집중 · 5분 휴식 자동 전환</span>
+      </div>
+
+      <!-- 중앙 원형 진행 링 및 타이머 -->
+      <section class="timer-stage" aria-label="타이머">
+        <div class="ring-wrapper">
+          <svg
+            class="progress-ring"
+            viewBox="0 0 280 280"
+            role="img"
+            aria-label="남은 시간 원형 진행률"
+          >
+            <defs>
+              <filter id="ring-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3.5" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <circle class="ring-track" cx="140" cy="140" r="124" />
+            <circle
+              id="progress-circle"
+              class="ring-progress"
+              cx="140"
+              cy="140"
+              r="124"
+              filter="url(#ring-glow)"
+            />
+          </svg>
+
+          <div class="timer-readout">
+            <div id="time-display" class="time-display" aria-live="off">25:00</div>
+            <div id="status-text" class="status-text">시작 버튼을 눌러 집중을 시작하세요</div>
+            <div id="progress-percent" class="progress-percent">0% 완료</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 타이머 제어 버튼 -->
+      <section class="controls" aria-label="타이머 제어">
+        <button id="start-btn" type="button" class="btn btn-primary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5.14v14l11-7-11-7z" />
+          </svg>
+          <span>시작</span>
+        </button>
+
+        <button id="pause-btn" type="button" class="btn btn-secondary" disabled>
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M6 5h4v14H6zm8 0h4v14h-4z" />
+          </svg>
+          <span>일시정지</span>
+        </button>
+
+        <button id="reset-btn" type="button" class="btn btn-ghost">
+          <svg
+            class="btn-icon icon-reset"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+          <span>초기화</span>
+        </button>
+      </section>
+
+      <!-- 하단 패널 영역: 세션 카운터 & 백색소음 -->
+      <div class="panels-grid">
+        <!-- 세션 카운터 패널 -->
+        <section class="panel session-panel" aria-label="완료한 집중 세션 카운터">
+          <div class="panel-header">
+            <h2 class="panel-title">완료한 집중 세션</h2>
+            <button
+              id="reset-sessions-btn"
+              type="button"
+              class="btn-mini"
+              title="완료 세션 기록 초기화"
+            >
+              기록 초기화
+            </button>
+          </div>
+
+          <div class="session-body">
+            <div class="session-count-wrap">
+              <span id="session-count" class="session-count">0</span>
+              <span class="session-unit">회</span>
+            </div>
+            <div class="session-dots" id="session-dots" aria-label="4세션 주기 표시">
+              <span class="session-dot"></span>
+              <span class="session-dot"></span>
+              <span class="session-dot"></span>
+              <span class="session-dot"></span>
+            </div>
+            <p id="session-caption" class="session-caption">첫 번째 집중 세션을 완료해 보세요</p>
+          </div>
+        </section>
+
+        <!-- 백색소음 패널 -->
+        <section class="panel sound-panel" aria-label="백색소음 설정">
+          <div class="panel-header">
+            <h2 class="panel-title">백색소음</h2>
+            <span id="sound-status-badge" class="sound-status-badge">꺼짐</span>
+          </div>
+
+          <div class="sound-buttons" role="group" aria-label="백색소음 선택">
+            <button
+              type="button"
+              class="sound-btn"
+              data-sound="wave"
+              aria-pressed="false"
+            >
+              <svg class="sound-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0" />
+                <path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0" />
+                <path d="M2 7c2-2 4-2 6 0s4 2 6 0 4-2 6 0" />
+              </svg>
+              <span>파도</span>
+              <span class="eq-bars" aria-hidden="true"><i></i><i></i><i></i></span>
+            </button>
+
+            <button
+              type="button"
+              class="sound-btn"
+              data-sound="rain"
+              aria-pressed="false"
+            >
+              <svg class="sound-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />
+                <path d="M8 19v2" />
+                <path d="M12 17v4" />
+                <path d="M16 19v2" />
+              </svg>
+              <span>비</span>
+              <span class="eq-bars" aria-hidden="true"><i></i><i></i><i></i></span>
+            </button>
+
+            <button
+              type="button"
+              class="sound-btn"
+              data-sound="birds"
+              aria-pressed="false"
+            >
+              <svg class="sound-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M16 7h.01" />
+                <path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20" />
+                <path d="m20 7 2 .5-2 .5" />
+                <path d="M10 18v3" />
+                <path d="M14 17.75V21" />
+              </svg>
+              <span>새 소리</span>
+              <span class="eq-bars" aria-hidden="true"><i></i><i></i><i></i></span>
+            </button>
+          </div>
+
+          <div class="volume-row">
+            <button
+              id="mute-btn"
+              type="button"
+              class="mute-btn"
+              aria-pressed="false"
+              aria-label="음소거 전환"
+              title="음소거"
+            >
+              <svg class="vol-icon icon-unmuted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
+              <svg class="vol-icon icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+            </button>
+
+            <div class="slider-wrap">
+              <input
+                id="volume-slider"
+                class="volume-slider"
+                type="range"
+                min="0"
+                max="100"
+                value="50"
+                aria-label="백색소음 음량 조절"
+              />
+            </div>
+
+            <span id="volume-value" class="volume-value">50%</span>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <span>단축키: <kbd>Space</kbd> 시작/일시정지 · <kbd>R</kbd> 초기화</span>
+      <button id="test-alarm-btn" type="button" class="link-btn">알림음 미리듣기</button>
+    </footer>
+  </div>
+</body>
+</html>
